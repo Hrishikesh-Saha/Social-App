@@ -1,31 +1,67 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-
-import XSvg from "../../../components/svgs/X";
+import { useMutation } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 
 import { MdOutlineMail } from "react-icons/md";
 import { FaUser } from "react-icons/fa";
 import { MdPassword } from "react-icons/md";
 import { MdDriveFileRenameOutline } from "react-icons/md";
 
+import XSvg from "../../../components/svgs/X";
+
 const SignUpPage = () => {
   const [formData, setFormData] = useState({
     email: "",
-    username: "",
+    userName: "",
     fullName: "",
     password: "",
   });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log(formData);
-  };
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const isError = false;
+  const { mutate, isError, error, isPending } = useMutation({
+
+    mutationFn: async ({ email, userName, fullName, password }) => {
+
+      try {
+
+        const response = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, userName, fullName, password }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Failed to create an account");
+        console.log(data);
+        return data;
+
+      } catch (error) {
+        throw error;
+      }
+
+    },
+
+    onSuccess : (data) => {
+      toast.success("Account created successfully");
+    }
+
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.userName || !formData.email || !formData.fullName || !formData.password) {
+      toast.error("Please fill all the fields");
+    }else {
+      mutate(formData);
+    }
+  };
+
 
   return (
     <div className="max-w-screen-xl mx-auto flex h-screen px-10">
@@ -57,9 +93,9 @@ const SignUpPage = () => {
                 type="text"
                 className="grow "
                 placeholder="Username"
-                name="username"
+                name="userName"
                 onChange={handleInputChange}
-                value={formData.username}
+                value={formData.userName}
               />
             </label>
             <label className="input input-bordered rounded flex items-center gap-2 flex-1">
@@ -86,9 +122,9 @@ const SignUpPage = () => {
             />
           </label>
           <button className="btn rounded-full btn-primary text-white">
-            Sign up
+            {isPending ? "Loading..." : "Sign up"}
           </button>
-          {isError && <p className="text-red-500">Something went wrong</p>}
+          {isError && <p className="text-red-500">{error.message}</p>}
         </form>
         <div className="flex flex-col lg:w-2/3 gap-2 mt-4">
           <p className="text-white text-lg">Already have an account?</p>

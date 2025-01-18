@@ -1,3 +1,7 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import toast from "react-hot-toast";
+
 import { FaRegComment } from "react-icons/fa";
 import { BiRepost } from "react-icons/bi";
 import { FaRegHeart } from "react-icons/fa";
@@ -5,17 +9,19 @@ import { FaRegBookmark } from "react-icons/fa6";
 import { FaTrash } from "react-icons/fa";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
 
 import LoadingSpinner from "./LoadingSpinner";
 
 const Post = ({ post }) => {
-  const [comment, setComment] = useState("");
-
   const { data: authUser } = useQuery({ queryKey: ["authUser"] });
-
   const queryClient = useQueryClient();
+
+  const postOwner = post.user;
+  const isMyPost = authUser._id === postOwner._id;
+  const isLiked = post.likes.includes(authUser._id);
+  const date = formatDistanceToNow(new Date(post.createdAt))
+  const formattedDate = date === "less than a minute" ? "just now" : date
+  const [comment, setComment] = useState("");
 
   const { mutate: deletePost, isPending } = useMutation({
     mutationFn: async () => {
@@ -23,7 +29,7 @@ const Post = ({ post }) => {
         const response = await fetch(`/api/post/${post._id}`, {
           method: "DELETE",
         });
-        const data = response.json();
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(data.error || "Something went wrong");
@@ -43,15 +49,79 @@ const Post = ({ post }) => {
     },
   });
 
-  const postOwner = post.user;
+  const { mutate: likePost, isPending: isLiking } = useMutation({
+    mutationFn: async () => {
+      try {
+        const res = await fetch(`/api/post/like/${post._id}`, {
+          method: "POST",
+        });
 
-  const isLiked = false;
+        const data = await res.json();
 
-  const isMyPost = authUser._id === postOwner._id;
+        if (!res.ok) {
+          throw new Error(data.error || "Something went wrong");
+        }
 
-  const formattedDate = "1h";
+        return data;
+      } catch (error) {
+        throw error;
+      }
+    },
 
-  const isCommenting = false;
+    onSuccess: (updatedLikes) => {
+      queryClient.setQueryData(["posts"], (oldData) => {
+        return oldData.map((p) => {
+          if (p._id === post._id) {
+            return { ...p, likes: updatedLikes };
+          }
+          return p;
+        });
+      });
+    },
+
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const { mutate: commentOnPost, isPending: isCommenting } = useMutation({
+    mutationFn: async () => {
+      try {
+        const res = await fetch(`/api/post/comment/${post._id}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text: comment }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Something went wrong");
+        }
+
+        return data;
+      } catch (error) {
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      setComment("");
+      toast.success("Comment posted successfully");
+      queryClient.setQueryData(["posts"], (oldData) => {
+        return oldData.map((p) => {
+          if (p._id === post._id) {
+            return { ...p, comments: data };
+          }
+          return p;
+        });
+      });
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   const handleDeletePost = () => {
     deletePost();
@@ -59,9 +129,14 @@ const Post = ({ post }) => {
 
   const handlePostComment = (e) => {
     e.preventDefault();
+    if (isCommenting) return;
+    commentOnPost();
   };
 
-  const handleLikePost = () => {};
+  const handleLikePost = () => {
+    if (isLiking) return;
+    likePost();
+  };
 
   return (
     <>
@@ -76,10 +151,10 @@ const Post = ({ post }) => {
         </div>
         <div className="flex flex-col flex-1">
           <div className="flex gap-2 items-center">
-            <Link to={`/profile/${postOwner.userName}`} className="font-bold">
+            <Link to={`/profile/${postOwner.userName}`} className="font-bold tru">
               {postOwner.fullName}
             </Link>
-            <span className="text-gray-700 flex gap-1 text-sm">
+            <span className="text-gray-700 flex gap-1 text-sm truncate">
               <Link to={`/profile/${postOwner.userName}`}>
                 @{postOwner.userName}
               </Link>
@@ -123,7 +198,9 @@ const Post = ({ post }) => {
                   {post.comments.length}
                 </span>
               </div>
+
               {/* We're using Modal Component from DaisyUI */}
+
               <dialog
                 id={`comments_modal${post._id}`}
                 className="modal border-none outline-none"
@@ -154,7 +231,7 @@ const Post = ({ post }) => {
                               {comment.user.fullName}
                             </span>
                             <span className="text-gray-700 text-sm">
-                              @{comment.user.username}
+                              @{comment.user.userName}
                             </span>
                           </div>
                           <div className="text-sm">{comment.text}</div>
@@ -173,11 +250,7 @@ const Post = ({ post }) => {
                       onChange={(e) => setComment(e.target.value)}
                     />
                     <button className="btn btn-primary rounded-full btn-sm text-white px-4">
-                      {isCommenting ? (
-                        <span className="loading loading-spinner loading-md"></span>
-                      ) : (
-                        "Post"
-                      )}
+                      {isCommenting ? <LoadingSpinner size="md" /> : "Post"}
                     </button>
                   </form>
                 </div>
@@ -185,6 +258,7 @@ const Post = ({ post }) => {
                   <button className="outline-none">close</button>
                 </form>
               </dialog>
+
               <div className="flex gap-1 items-center group cursor-pointer">
                 <BiRepost className="w-6 h-6  text-slate-500 group-hover:text-green-500" />
                 <span className="text-sm text-slate-500 group-hover:text-green-500">
@@ -195,20 +269,24 @@ const Post = ({ post }) => {
                 className="flex gap-1 items-center group cursor-pointer"
                 onClick={handleLikePost}
               >
-                {!isLiked && (
+                {isLiking && <LoadingSpinner size="sm" />}
+
+                {!isLiked && !isLiking && (
                   <FaRegHeart className="w-4 h-4 cursor-pointer text-slate-500 group-hover:text-pink-500" />
                 )}
-                {isLiked && (
+                {isLiked && !isLiking && (
                   <FaRegHeart className="w-4 h-4 cursor-pointer text-pink-500 " />
                 )}
 
-                <span
-                  className={`text-sm text-slate-500 group-hover:text-pink-500 ${
-                    isLiked ? "text-pink-500" : ""
-                  }`}
-                >
-                  {post.likes.length}
-                </span>
+                {!isLiking && (
+                  <span
+                    className={`text-sm group-hover:text-pink-500 ${
+                      isLiked ? "text-pink-500" : "text-slate-500"
+                    }`}
+                  >
+                    {post.likes.length}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex w-1/3 justify-end gap-2 items-center">

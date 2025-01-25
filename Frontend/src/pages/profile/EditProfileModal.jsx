@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const EditProfileModal = () => {
+import useUpdateProfile from "../../hooks/useUpdateProfile";
+
+const EditProfileModal = ({ authUser }) => {
   const [formData, setFormData] = useState({
     fullName: "",
     username: "",
@@ -14,6 +16,18 @@ const EditProfileModal = () => {
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
+  useEffect(() => {
+    setFormData({
+      fullName: authUser?.fullName || "", // Fallback to empty string
+      username: authUser?.userName || "", // Fallback to empty string
+      bio: authUser?.bio || "", // Fallback to empty string
+      link: authUser?.link || "", // Fallback to empty string
+      email: authUser?.email || "", // Fallback to empty string
+    });
+  }, [authUser]);
+
+  const { isUpdating, updateProfile } = useUpdateProfile();
 
   return (
     <>
@@ -32,7 +46,7 @@ const EditProfileModal = () => {
             className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault();
-              alert("Profile updated successfully");
+              updateProfile(formData);
             }}
           >
             <div className="flex flex-wrap gap-2">
@@ -40,7 +54,7 @@ const EditProfileModal = () => {
                 type="text"
                 placeholder="Full Name"
                 className="flex-1 input border border-gray-700 rounded p-2 input-md"
-                value={formData.fullName}
+                value={formData.fullName || ""}
                 name="fullName"
                 onChange={handleInputChange}
               />
@@ -48,7 +62,7 @@ const EditProfileModal = () => {
                 type="text"
                 placeholder="Username"
                 className="flex-1 input border border-gray-700 rounded p-2 input-md"
-                value={formData.username}
+                value={formData.username || ""}
                 name="username"
                 onChange={handleInputChange}
               />
@@ -58,14 +72,14 @@ const EditProfileModal = () => {
                 type="email"
                 placeholder="Email"
                 className="flex-1 input border border-gray-700 rounded p-2 input-md"
-                value={formData.email}
+                value={formData.email || ""}
                 name="email"
                 onChange={handleInputChange}
               />
               <textarea
                 placeholder="Bio"
                 className="flex-1 input border border-gray-700 rounded p-2 input-md"
-                value={formData.bio}
+                value={formData.bio || ""}
                 name="bio"
                 onChange={handleInputChange}
               />
@@ -75,7 +89,7 @@ const EditProfileModal = () => {
                 type="password"
                 placeholder="Current Password"
                 className="flex-1 input border border-gray-700 rounded p-2 input-md"
-                value={formData.currentPassword}
+                value={formData.currentPassword || ""}
                 name="currentPassword"
                 onChange={handleInputChange}
               />
@@ -83,7 +97,7 @@ const EditProfileModal = () => {
                 type="password"
                 placeholder="New Password"
                 className="flex-1 input border border-gray-700 rounded p-2 input-md"
-                value={formData.newPassword}
+                value={formData.newPassword || ""}
                 name="newPassword"
                 onChange={handleInputChange}
               />
@@ -92,12 +106,12 @@ const EditProfileModal = () => {
               type="text"
               placeholder="Link"
               className="flex-1 input border border-gray-700 rounded p-2 input-md"
-              value={formData.link}
+              value={formData.link || ""}
               name="link"
               onChange={handleInputChange}
             />
             <button className="btn btn-primary rounded-full btn-sm text-white">
-              Update
+              {isUpdating ? "Updating..." : "Update"}
             </button>
           </form>
         </div>
@@ -108,4 +122,5 @@ const EditProfileModal = () => {
     </>
   );
 };
+
 export default EditProfileModal;

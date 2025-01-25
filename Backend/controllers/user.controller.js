@@ -155,7 +155,8 @@ export const updateUser = async (req, res) => {
       coverImg = uploadResponse.secure_url;
     }
  
-    if (email) {
+    if (email !== user.email && email) {
+
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
       if (!emailRegex.test(email)) {

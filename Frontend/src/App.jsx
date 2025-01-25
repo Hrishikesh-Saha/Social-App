@@ -25,9 +25,6 @@ const App = () => {
         if (!response.ok) {
           throw new Error(data.error || "Something went wrong");
         }
-
-        console.log("AuthUser is here:", data);
-
         return data;
       } catch (error) {
         throw error;
